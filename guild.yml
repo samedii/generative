@@ -1,0 +1,92 @@
+- package: generative-package
+
+- model: problem
+  sourcecode:
+    - '*.py'
+    - guild.yml
+    - exclude:
+        dir:
+          - input
+          - tb
+          - checkpoints
+  operations:
+    prepare:
+      main: generative.problem.prepare
+      flags-import: all
+      output-scalars: off
+  resources:
+    prepare:
+      name: prepare
+      path: prepare
+      sources:
+        - operation: prepare
+
+- model: codebook
+  sourcecode:
+    - '*.py'
+    - guild.yml
+    - exclude:
+        dir:
+          - input
+          - tb
+          - checkpoints
+  operations:
+    train:
+      main: generative.codebook.train
+      flags-import: all
+      output-scalars: off
+      requires:
+        - prepare
+    retrain:
+      main: generative.codebook.train
+      flags-import: all
+      output-scalars: off
+      requires:
+        - model
+        - prepare
+  resources:
+    model:
+      name: model
+      path: model
+      sources:
+        - operation: train|retrain
+    prepare:
+      name: prepare
+      path: prepare
+      sources:
+        - operation: prepare
+
+- model: vae
+  sourcecode:
+    - '*.py'
+    - guild.yml
+    - exclude:
+        dir:
+          - input
+          - tb
+          - checkpoints
+  operations:
+    train:
+      main: generative.vae.train
+      flags-import: all
+      output-scalars: off
+      requires:
+        - prepare
+    retrain:
+      main: generative.vae.train
+      flags-import: all
+      output-scalars: off
+      requires:
+        - model
+        - prepare
+  resources:
+    model:
+      name: model
+      path: model
+      sources:
+        - operation: train|retrain
+    prepare:
+      name: prepare
+      path: prepare
+      sources:
+        - operation: prepare
