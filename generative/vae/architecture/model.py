@@ -14,11 +14,6 @@ class Model(nn.Module):
         super().__init__()
 
         self.encoder = ModuleCompose(
-            # nn.Flatten(),
-            # nn.Linear(32 * 32, 400),
-            # F.relu,
-            # nn.Linear(400, 20 * 2),
-
             nn.Conv2d(1, 16, 3, stride=2, padding=1, bias=False),  # 16x16
 
             nn.BatchNorm2d(16),
@@ -41,12 +36,6 @@ class Model(nn.Module):
 
             nn.Conv2d(32, 1, 3, stride=2, padding=1, bias=False),  # 4x4
 
-            # nn.Conv2d(channels, channels, kernel_size=1),
-            # module.Swish(),
-            # nn.Conv2d(channels, latent_channels * 2, kernel_size=1),
-            # partial(torch.chunk, chunks=2, dim=1),
-
-            # nn.BatchNorm2d(64),
             Swish(),
             nn.Flatten(),
             nn.Linear(1 * 4 * 4, 2 * 1 * 4 * 4),  # should be global
@@ -54,10 +43,6 @@ class Model(nn.Module):
         )
 
         self.decoder = ModuleCompose(
-            # nn.Linear(20, 400),
-            # F.relu,
-            # nn.Linear(400, 32 * 32),
-            # lambda x: x.view(-1, 32, 32),
             lambda x: x.view(-1, 16, 1, 1).expand(-1, 16, 4, 4),
             RandomFourier(16),
 

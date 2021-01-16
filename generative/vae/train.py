@@ -69,11 +69,7 @@ def train(config):
                 optimizer.step()
                 optimizer.zero_grad()
 
-                (
-                    gradient_metrics.update_(
-                        examples, predictions, loss.detach().numpy()
-                    ).log_()
-                )
+                gradient_metrics.update_(examples, predictions, loss).log_()
         gradient_metrics.print()
         log_examples(tensorboard_logger, "gradient", epoch, examples, predictions)
         log_generated(tensorboard_logger, epoch, model.generated(5))
@@ -100,7 +96,7 @@ def train(config):
                     loss = predictions.loss(examples)
 
                     evaluate_metrics[name].update_(
-                        examples, predictions, loss.detach().numpy()
+                        examples, predictions, loss
                     )
                 evaluate_metrics[name].log_(epoch).print()
                 log_examples(tensorboard_logger, name, epoch, examples, predictions)
