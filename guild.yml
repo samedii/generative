@@ -90,3 +90,39 @@
       path: prepare
       sources:
         - operation: prepare
+
+
+- model: aegan
+  sourcecode:
+    - '*.py'
+    - guild.yml
+    - exclude:
+        dir:
+          - input
+          - tb
+          - checkpoints
+  operations:
+    train:
+      main: generative.aegan.train
+      flags-import: all
+      output-scalars: off
+      requires:
+        - prepare
+    retrain:
+      main: generative.aegan.train
+      flags-import: all
+      output-scalars: off
+      requires:
+        - model
+        - prepare
+  resources:
+    model:
+      name: model
+      path: model
+      sources:
+        - operation: train|retrain
+    prepare:
+      name: prepare
+      path: prepare
+      sources:
+        - operation: prepare
