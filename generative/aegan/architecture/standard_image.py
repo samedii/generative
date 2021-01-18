@@ -55,17 +55,17 @@ class StandardImageBatch(FunctionalBase):
         for index in range(len(self)):
             yield self[index]
 
-    def mse(self, standard_image):
-        return F.mse_loss(
+    def l1(self, standard_image):
+        return F.l1_loss(
             self.data,
             standard_image.data,
         )
 
-    def bce(self, standard_image):
-        return F.binary_cross_entropy(
-            (self.data + 1) / 2,
-            (standard_image.data + 1) / 2,
-        )
+    # def bce(self, standard_image):
+    #     return F.binary_cross_entropy(
+    #         (self.data + 1) / 2,
+    #         (standard_image.data + 1) / 2,
+    #     )
 
     def detach(self):
         return StandardImageBatch(data=self.data.detach())

@@ -19,6 +19,15 @@ class LatentBatch(FunctionalBase):
     def encoding(self):
         return self.loc + torch.randn_like(self.loc) * torch.exp(0.5 * self.log_variance)
 
+    def wasserstein(self, other):
+        """2-wasserstein distance https://en.wikipedia.org/wiki/Wasserstein_metric"""
+        return (
+            (self.loc - other.loc) ** 2
+            + self.log_variance.exp()
+            + other.log_variance.exp()
+            - 2 * (self.log_variance.exp() * other.log_variance.exp()) ** 0.5
+        ).mean()
+
     # we can do better than this loss function if we want to have loc + scale
     def mse(self, latent):
         return F.mse_loss(

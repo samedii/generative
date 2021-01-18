@@ -13,13 +13,13 @@ class LatentPredictionBatch(FunctionalBase):
     def bce_real(self):
         return F.binary_cross_entropy_with_logits(
             self.logits,
-            torch.ones_like(self.logits),
+            torch.ones_like(self.logits) * 0.95,
         )
 
     def bce_generated(self):
         return F.binary_cross_entropy_with_logits(
             self.logits,
-            torch.zeros_like(self.logits),
+            torch.ones_like(self.logits) * 0.05,
         )
 
 
@@ -28,6 +28,11 @@ class LatentDiscriminator(nn.Module):
         super().__init__()
 
         # transformer?
+
+        # TODO: 16 layers
+        # GaussianNoise, GaussianDropout
+        # LayerNormalization
+        # https://github.com/ConorLazarou/AEGAN-keras/blob/master/code/generative_model.py
         self.real = ModuleCompose(
             nn.Linear(1 * 4 * 4, 32),
             Swish(),

@@ -26,19 +26,23 @@ def train(config):
         latent_discriminator=architecture.LatentDiscriminator(),
     )
     models = nn.ModuleDict({name: model.to(device) for name, model in models.items()})
+
     optimizers = {
-        name: torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
+        name: torch.optim.Adam(model.parameters(), lr=(
+            config["learning_rate"]
+            if "discriminator" in name
+            else 0.1 * config["learning_rate"]
+        ))
         for name, model in models.items()
     }
 
     if Path("model").exists():
         print("Loading model checkpoint")
-        for name, model in models.items():
-            model.load_state_dict(torch.load(f"model/{name}.pt"))
+        models.load_state_dict(torch.load("models.pt"))
 
         for name, optimizer in optimizers.items():
-            optimizer.load_state_dict(torch.load(f"model/{name}.pt"))
-            lantern.set_learning_rate(optimizer, config["learning_rate"])
+            optimizer.load_state_dict(torch.load(f"model/optimizer__{name}.pt"))
+            # lantern.set_learning_rate(optimizer, config["learning_rate"])
 
     gradient_data_loader = datastream.GradientDatastream().data_loader(
         batch_size=config["batch_size"],
@@ -81,18 +85,19 @@ def train(config):
                     generated_image = models["generator"](generated_latent)
                     reverse_latent = models["encoder"](reconstructed_image)
 
-                    with torch.no_grad():
-                        bce_latent_generated = models["latent_discriminator"](generated_latent).bce_real()
-                        bce_image_reconstructed = models["image_discriminator"](reconstructed_image).bce_real()
-                        bce_image_generated = models["image_discriminator"](generated_image).bce_real()
+                    with lantern.requires_nograd(models):
+                        adversarial_latent_generated = models["latent_discriminator"](generated_latent).bce_real()
+                        adversarial_image_reconstructed = models["image_discriminator"](reconstructed_image).bce_real()
+                        # adversarial_image_generated = models["image_discriminator"](generated_image).bce_real()
 
                     image_loss = (
-                        reconstructed_image.bce(real_image)  # l1 instead? check cycle gan
-                        + real_latent.mse(reverse_latent)  # l1 instead? check cycle gan
-                        + bce_latent_generated
-                        + bce_image_reconstructed
-                        + bce_image_generated
-                        + 0.1 * real_latent.kl()  # don't use this?
+                        10 * reconstructed_image.l1(real_image)
+                        + 0.1 * real_latent.wasserstein(reverse_latent)
+                        + 0.1 * adversarial_latent_generated
+                        + 0.1 * adversarial_image_reconstructed
+                        # + 0.1 * adversarial_image_generated
+                        + 0.01 * real_latent.kl()  # don't use this?
+                        # + 0.01 * reverse_latent.kl()
                     )
                     image_loss.backward()
 
@@ -101,23 +106,30 @@ def train(config):
 
                     bce_image_real = models["image_discriminator"](real_image).bce_real()
                     bce_image_reconstructed = models["image_discriminator"](reconstructed_image.detach()).bce_generated()
-                    bce_image_generated = models["image_discriminator"](generated_image.detach()).bce_generated()
+                    # bce_image_generated = models["image_discriminator"](generated_image.detach()).bce_generated()
 
                     discriminator_loss = (
                         bce_latent_real
                         + bce_latent_generated
                         + bce_image_real
                         + bce_image_reconstructed
-                        + bce_image_generated
+                        # + bce_image_generated
                     )
                     discriminator_loss.backward()
+
+                nn.utils.clip_grad_norm_(models.parameters(), 1)
 
                 for optimizer in optimizers.values():
                     optimizer.step()
                     optimizer.zero_grad()
 
-                gradient_metrics.update_(examples, reconstructed_image, image_loss, discriminator_loss).log_()
+                gradient_metrics.update_(image_loss, discriminator_loss).log_()
+
+                tensorboard_logger.add_scalar("gradient/reconstructed_image_l1", reconstructed_image.l1(real_image).item(), global_step=gradient_metrics.n_logs)
+                tensorboard_logger.add_scalar("gradient/kl", real_latent.kl().item(), global_step=gradient_metrics.n_logs)
+
         gradient_metrics.print()
+
         log_reconstructed(tensorboard_logger, "gradient", epoch, examples, reconstructed_image)
         log_generated(tensorboard_logger, "gradient", epoch, generated_image)
         # tensorboard_logger.add_histogram("encoding", predictions.encoding, global_step=epoch)
@@ -137,7 +149,11 @@ def train(config):
                     log_reconstructed(tensorboard_logger, name, epoch, examples, reconstructed_image)
                     log_generated(tensorboard_logger, name, epoch, generated_image)
 
-        tensorboard_logger.close()
+        torch.save(models.state_dict(), "models.pt")
+        for name, optimizer in optimizers.items():
+            torch.save(optimizer.state_dict(), f"model/optimizer_{name}.pt")
+
+    tensorboard_logger.close()
 
 
 if __name__ == "__main__":

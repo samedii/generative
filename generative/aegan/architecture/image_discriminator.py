@@ -13,13 +13,13 @@ class ImagePredictionBatch(FunctionalBase):
     def bce_real(self):
         return F.binary_cross_entropy_with_logits(
             self.logits,
-            torch.ones_like(self.logits),  # one sided smoothing?
+            torch.ones_like(self.logits) * 0.95,  # one sided smoothing?
         )
 
     def bce_generated(self):
         return F.binary_cross_entropy_with_logits(
             self.logits,
-            torch.zeros_like(self.logits),
+            torch.ones_like(self.logits) * 0.05,
         )
 
 
