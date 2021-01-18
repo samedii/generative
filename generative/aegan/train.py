@@ -74,46 +74,46 @@ def train(config):
 
         with lantern.module_train(models):
             for examples in lantern.ProgressBar(
-                gradient_data_loader, metrics=gradient_metrics[["image_loss", "discriminator_loss"]]
+                gradient_data_loader, metrics=gradient_metrics[["autoencoder_loss", "discriminator_loss"]]
             ):
                 with torch.enable_grad():
                     real_image = architecture.StandardImageBatch.from_examples(examples)
-                    real_latent = models["encoder"](real_image)
-                    reconstructed_image = models["generator"](real_latent)
+                    constructed_latent = models["encoder"](real_image)
+                    reconstructed_image = models["generator"](constructed_latent)
 
                     generated_latent = architecture.LatentBatch.generated(config["batch_size"])
+                    reconstructed_latent = models["encoder"](reconstructed_image)
                     generated_image = models["generator"](generated_latent)
-                    reverse_latent = models["encoder"](reconstructed_image)
 
                     with lantern.requires_nograd(models):
                         adversarial_latent_generated = models["latent_discriminator"](generated_latent).bce_real()
                         adversarial_image_reconstructed = models["image_discriminator"](reconstructed_image).bce_real()
-                        # adversarial_image_generated = models["image_discriminator"](generated_image).bce_real()
+                        adversarial_image_generated = models["image_discriminator"](generated_image).bce_real()
 
-                    image_loss = (
+                    autoencoder_loss = (
                         10 * reconstructed_image.l1(real_image)
-                        + 0.1 * real_latent.wasserstein(reverse_latent)
+                        + 0.1 * constructed_latent.mse(reconstructed_latent)
                         + 0.1 * adversarial_latent_generated
                         + 0.1 * adversarial_image_reconstructed
-                        # + 0.1 * adversarial_image_generated
-                        + 0.01 * real_latent.kl()  # don't use this?
-                        # + 0.01 * reverse_latent.kl()
+                        + 0.1 * adversarial_image_generated
                     )
-                    image_loss.backward()
+                    autoencoder_loss.backward()
 
-                    bce_latent_real = models["latent_discriminator"](real_latent.detach()).bce_real()
-                    bce_latent_generated = models["latent_discriminator"](generated_latent).bce_generated()
+                    bce_latent_constructed = models["latent_discriminator"](constructed_latent.detach()).bce_constructed()
+                    bce_latent_reconstructed = models["latent_discriminator"](reconstructed_latent.detach()).bce_constructed()
+                    bce_latent_generated = models["latent_discriminator"](generated_latent).bce_real()
 
                     bce_image_real = models["image_discriminator"](real_image).bce_real()
                     bce_image_reconstructed = models["image_discriminator"](reconstructed_image.detach()).bce_generated()
-                    # bce_image_generated = models["image_discriminator"](generated_image.detach()).bce_generated()
+                    bce_image_generated = models["image_discriminator"](generated_image.detach()).bce_generated()
 
                     discriminator_loss = (
-                        bce_latent_real
-                        + bce_latent_generated
+                        bce_latent_constructed
+                        + 0.5 * bce_latent_generated
+                        + 0.5 * bce_latent_reconstructed
                         + bce_image_real
-                        + bce_image_reconstructed
-                        # + bce_image_generated
+                        + 0.5 * bce_image_reconstructed
+                        + 0.5 * bce_image_generated
                     )
                     discriminator_loss.backward()
 
@@ -123,10 +123,18 @@ def train(config):
                     optimizer.step()
                     optimizer.zero_grad()
 
-                gradient_metrics.update_(image_loss, discriminator_loss).log_()
+                gradient_metrics.update_(autoencoder_loss, discriminator_loss).log_()
 
                 tensorboard_logger.add_scalar("gradient/reconstructed_image_l1", reconstructed_image.l1(real_image).item(), global_step=gradient_metrics.n_logs)
-                tensorboard_logger.add_scalar("gradient/kl", real_latent.kl().item(), global_step=gradient_metrics.n_logs)
+                tensorboard_logger.add_scalar("gradient/reconstructed_latent_mse", constructed_latent.mse(reconstructed_latent).item(), global_step=gradient_metrics.n_logs)
+
+                tensorboard_logger.add_scalar("gradient/real_image_probability", models["image_discriminator"](real_image).logits.sigmoid().mean().item(), global_step=gradient_metrics.n_logs)
+                tensorboard_logger.add_scalar("gradient/reconstructed_image_probability", models["image_discriminator"](reconstructed_image).logits.sigmoid().mean().item(), global_step=gradient_metrics.n_logs)
+                tensorboard_logger.add_scalar("gradient/generated_image_probability", models["image_discriminator"](generated_image).logits.sigmoid().mean().item(), global_step=gradient_metrics.n_logs)
+
+                tensorboard_logger.add_scalar("gradient/constructed_latent_probability", models["latent_discriminator"](constructed_latent).logits.sigmoid().mean().item(), global_step=gradient_metrics.n_logs)
+                tensorboard_logger.add_scalar("gradient/reconstructed_latent_probability", models["latent_discriminator"](reconstructed_latent).logits.sigmoid().mean().item(), global_step=gradient_metrics.n_logs)
+                tensorboard_logger.add_scalar("gradient/generated_latent_probability", models["latent_discriminator"](generated_latent).logits.sigmoid().mean().item(), global_step=gradient_metrics.n_logs)
 
         gradient_metrics.print()
 
@@ -140,8 +148,8 @@ def train(config):
             for name, data_loader in evaluate_data_loaders.items():
                 for examples in tqdm(data_loader, desc=name, leave=False):
                     real_image = architecture.StandardImageBatch.from_examples(examples)
-                    real_latent = models["encoder"](real_image)
-                    reconstructed_image = models["generator"](real_latent)
+                    constructed_latent = models["encoder"](real_image)
+                    reconstructed_image = models["generator"](constructed_latent)
 
                     generated_latent = architecture.LatentBatch.generated(config["batch_size"])
                     generated_image = models["generator"](generated_latent)
@@ -151,7 +159,7 @@ def train(config):
 
         torch.save(models.state_dict(), "models.pt")
         for name, optimizer in optimizers.items():
-            torch.save(optimizer.state_dict(), f"model/optimizer_{name}.pt")
+            torch.save(optimizer.state_dict(), f"optimizer_{name}.pt")
 
     tensorboard_logger.close()
 

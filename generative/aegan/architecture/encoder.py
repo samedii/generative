@@ -37,16 +37,10 @@ class Encoder(nn.Module):
 
             Swish(),
             nn.Flatten(),
-            nn.Linear(1 * 4 * 4, 2 * 1 * 4 * 4),  # should be global
-            lambda x: x.chunk(2, dim=1),
+            nn.Linear(1 * 4 * 4, 1 * 4 * 4),
         )
 
     def forward(self, standard_image: architecture.StandardImageBatch) -> architecture.LatentBatch:
-        loc, log_variance = self.latent(
+        return architecture.LatentBatch(encoding=self.latent(
             standard_image.data.to(module_device(self))
-        )
-
-        return architecture.LatentBatch(
-            loc=loc.cpu(),
-            log_variance=log_variance.cpu(),
-        )
+        ).cpu())

@@ -16,7 +16,7 @@ class LatentPredictionBatch(FunctionalBase):
             torch.ones_like(self.logits) * 0.95,
         )
 
-    def bce_generated(self):
+    def bce_constructed(self):
         return F.binary_cross_entropy_with_logits(
             self.logits,
             torch.ones_like(self.logits) * 0.05,
@@ -44,5 +44,5 @@ class LatentDiscriminator(nn.Module):
     def forward(self, latent: architecture.LatentBatch) -> LatentPredictionBatch:
         # These will not be the same generated as the ones used to create the images, is that a problem?
         return LatentPredictionBatch(logits=self.real(
-            latent.encoding().to(module_device(self))
+            latent.encoding.to(module_device(self))
         ))

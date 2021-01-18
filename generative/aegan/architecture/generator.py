@@ -51,5 +51,5 @@ class Generator(nn.Module):
 
     def forward(self, latent: architecture.LatentBatch) -> architecture.StandardImageBatch:
         return architecture.StandardImageBatch(
-            data=self.image(latent.encoding().to(module_device(self))).cpu()
+            data=self.image(latent.encoding.to(module_device(self))).cpu()
         )

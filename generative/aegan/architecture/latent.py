@@ -5,46 +5,19 @@ from lantern import FunctionalBase, Tensor
 
 
 class LatentBatch(FunctionalBase):
-    loc: Tensor
-    log_variance: Tensor
+    encoding: Tensor
 
     @staticmethod
-    def generated(batch_size):  # customize scale?
-        shape = (batch_size, 1 * 4 * 4)
+    def generated(batch_size, scale=1.0):
         return LatentBatch(
-            loc=torch.zeros(shape),
-            log_variance=torch.zeros(shape),
+            encoding=torch.randn((batch_size, 1 * 4 * 4)) * scale,
         )
 
-    def encoding(self):
-        return self.loc + torch.randn_like(self.loc) * torch.exp(0.5 * self.log_variance)
-
-    def wasserstein(self, other):
-        """2-wasserstein distance https://en.wikipedia.org/wiki/Wasserstein_metric"""
-        return (
-            (self.loc - other.loc) ** 2
-            + self.log_variance.exp()
-            + other.log_variance.exp()
-            - 2 * (self.log_variance.exp() * other.log_variance.exp()) ** 0.5
-        ).mean()
-
-    # we can do better than this loss function if we want to have loc + scale
     def mse(self, latent):
         return F.mse_loss(
-            self.encoding(),
-            latent.encoding(),
+            self.encoding,
+            latent.encoding,
         )
-
-    def kl(self):
-        kl = -0.5 * (1 + self.log_variance - self.loc ** 2 - self.log_variance.exp())
-        return kl.mean()
-
-    @property
-    def scale(self):
-        return (0.5 * self.log_variance).exp()
 
     def detach(self):
-        return LatentBatch(
-            loc=self.loc.detach(),
-            log_variance=self.log_variance.detach(),
-        )
+        return LatentBatch(encoding=self.encoding.detach())
