@@ -12,32 +12,23 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
+        channels = [1, 64, 64, 128, 128, 128, 256]
+        kernel_sizes = [3, 3, 3, 3, 3, 3]
+        strides = [2, 2, 2, 1, 1, 1]
+        shapes = [(16, 16), (8, 8), (4, 4), (4, 4), (4, 4), (4, 4)]
+
         self.latent = ModuleCompose(
-            nn.Conv2d(1, 16, 3, stride=2, padding=1, bias=False),  # 16x16
-
-            nn.BatchNorm2d(16),
-            Swish(),
-            nn.Conv2d(16, 16, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(16),
-            Swish(),
-            nn.Conv2d(16, 16, kernel_size=3, padding=1),
-            SqueezeExcitation(16),
-
-            nn.Conv2d(16, 32, 3, stride=2, padding=1, bias=False),  # 8x8
-
-            nn.BatchNorm2d(32),
-            Swish(),
-            nn.Conv2d(32, 32, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(32),
-            Swish(),
-            nn.Conv2d(32, 32, kernel_size=3, padding=1),
-            SqueezeExcitation(32),
-
-            nn.Conv2d(32, 1, 3, stride=2, padding=1, bias=False),  # 4x4
-
-            Swish(),
+            *[
+                ModuleCompose(
+                    nn.Conv2d(from_channels, to_channels, kernel_size, stride=stride, padding=kernel_size // 2),
+                    nn.LayerNorm((to_channels, *shape)),
+                    nn.LeakyReLU(0.02),
+                )
+                for from_channels, to_channels, kernel_size, stride, shape
+                in zip(channels[:-1], channels[1:], kernel_sizes, strides, shapes)
+            ],
             nn.Flatten(),
-            nn.Linear(1 * 4 * 4, 1 * 4 * 4),
+            nn.Linear(256 * 4 * 4, 16),
         )
 
     def forward(self, standard_image: architecture.StandardImageBatch) -> architecture.LatentBatch:

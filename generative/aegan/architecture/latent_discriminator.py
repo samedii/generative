@@ -26,19 +26,28 @@ class LatentPredictionBatch(FunctionalBase):
 class LatentDiscriminator(nn.Module):
     def __init__(self):
         super().__init__()
-
         # transformer?
 
-        # TODO: 16 layers
-        # GaussianNoise, GaussianDropout
-        # LayerNormalization
         # https://github.com/ConorLazarou/AEGAN-keras/blob/master/code/generative_model.py
+        rate = 0.005
+        scale = (rate / (1 - rate)) ** 0.5
         self.real = ModuleCompose(
-            nn.Linear(1 * 4 * 4, 32),
-            Swish(),
-            nn.Linear(32, 32),
-            Swish(),
-            nn.Linear(32, 1),
+            lambda latent: latent + torch.randn_like(latent) * 0.01,
+            *[
+                (
+                    ModuleCompose(
+                        nn.Linear(16 * (index + 1), 16),
+                        lambda x: x * (1 + torch.randn_like(x) * scale),
+                        nn.LayerNorm(16),
+                        nn.LeakyReLU(0.02),
+                    ),
+                    lambda module, x: torch.cat([module(x), x], dim=1),
+                )
+                for index in range(16)
+            ],
+            nn.Linear(16 * (16 + 1), 128),
+            nn.LeakyReLU(0.02),
+            nn.Linear(128, 1),
         )
 
     def forward(self, latent: architecture.LatentBatch) -> LatentPredictionBatch:

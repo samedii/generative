@@ -86,16 +86,18 @@ def train(config):
                     generated_image = models["generator"](generated_latent)
 
                     with lantern.requires_nograd(models):
-                        adversarial_latent_generated = models["latent_discriminator"](generated_latent).bce_real()
+                        adversarial_latent_constructed = models["latent_discriminator"](constructed_latent).bce_real()
+                        adversarial_latent_reconstructed = models["latent_discriminator"](reconstructed_latent).bce_real()
                         adversarial_image_reconstructed = models["image_discriminator"](reconstructed_image).bce_real()
                         adversarial_image_generated = models["image_discriminator"](generated_image).bce_real()
 
                     autoencoder_loss = (
                         10 * reconstructed_image.l1(real_image)
-                        + 0.1 * constructed_latent.mse(reconstructed_latent)
-                        + 0.1 * adversarial_latent_generated
+                        + 1 * constructed_latent.mse(reconstructed_latent)
+                        + 0.1 * adversarial_latent_constructed
+                        # + 0.1 * adversarial_latent_reconstructed
                         + 0.1 * adversarial_image_reconstructed
-                        + 0.1 * adversarial_image_generated
+                        # + 0.1 * adversarial_image_generated
                     )
                     autoencoder_loss.backward()
 
@@ -168,7 +170,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--eval_batch_size", type=int, default=128)
-    parser.add_argument("--learning_rate", type=float, default=5e-4)
+    parser.add_argument("--learning_rate", type=float, default=5e-3)
     parser.add_argument("--max_epochs", type=int, default=200)
     parser.add_argument("--n_batches_per_epoch", default=50, type=int)
     parser.add_argument("--n_batches_per_step", default=1, type=int)
