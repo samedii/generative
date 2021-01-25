@@ -31,6 +31,7 @@ torchvision = "^0.7.0"
 opencv-python = "^4.4.0"
 pytorch-datastream = "^0.4.0"
 pytorch-lantern = "^0.9.3"
+simple-pid = "^0.2.4"
 
 [tool.poetry.dev-dependencies]
 guildai = "0.7.1"

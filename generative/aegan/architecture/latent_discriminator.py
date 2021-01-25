@@ -35,9 +35,11 @@ class LatentDiscriminator(nn.Module):
         # https://github.com/ConorLazarou/AEGAN-keras/blob/master/code/generative_model.py
         self.real = ModuleCompose(
             nn.Linear(1 * 4 * 4, 32),
-            Swish(),
+            nn.LeakyReLU(0.02),
             nn.Linear(32, 32),
-            Swish(),
+            nn.LeakyReLU(0.02),
+            nn.Linear(32, 32),
+            nn.LeakyReLU(0.02),
             nn.Linear(32, 1),
         )
 

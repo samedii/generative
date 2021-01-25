@@ -18,21 +18,20 @@ class ConvPixelShuffle(nn.Module):
         )
 
         self.upsampled = torch.nn.PixelShuffle(upscale_factor)
-        self.initializer = torch.nn.init.kaiming_normal_
         self.convolution.weight.data = (
             self.icnr_initialization(self.convolution.weight.data)
         )
 
     def icnr_initialization(self, tensor):
         if self.upsampled.upscale_factor == 1:
-            return self.initializer(tensor)
+            return torch.nn.init.kaiming_normal_(tensor)
 
         new_shape = (
             [int(tensor.shape[0] / (self.upsampled.upscale_factor ** 2))]
             + list(tensor.shape[1:])
         )
 
-        subkernel = self.initializer(torch.zeros(new_shape)).transpose(0, 1)
+        subkernel = torch.nn.init.kaiming_normal_(torch.zeros(new_shape)).transpose(0, 1)
 
         kernel = (
             subkernel.reshape(subkernel.shape[0], subkernel.shape[1], -1)
